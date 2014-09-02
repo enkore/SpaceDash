@@ -6,14 +6,14 @@ import time
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtQuick import *
+from PyQt5.QtNetwork import *
 
-
-class UpdateThread(QThread):
+class Dashboard(QObject):
 
     temperatureUpdated = pyqtSignal(str)
 
     def __init__(self):
-        super(UpdateThread, self).__init__()
+        super().__init__()
         self.view = QQuickView()
         self.view.setWidth(1024)
         self.view.setHeight(600)
@@ -22,25 +22,42 @@ class UpdateThread(QThread):
         self.view.setSource(QUrl('dashboard.qml'))
         self.view.show()
         self.qml_rectangle = self.view.rootObject()
+
+        self.network = QNetworkAccessManager()
+
+        self.update_timer = QTimer()
+        self.update_timer.setInterval(1000)
+        self.update_timer.timeout.connect(self.update)
+        self.update_timer.start()
+
         self.temperatureUpdated.connect(self.qml_rectangle.updateTemperature)
 
-    def run(self):
-        print("Thread starting")
-        while True:
-            time.sleep(1.0)
-            print("Updating")
-            try:
-                bytedata = urllib.request.urlopen('http://status.hasi.it/spaceapi', None, 10).read()
-                stringdata = bytedata.decode("utf-8")
-                jsondata = json.loads(stringdata)
-                self.currentTemperature = str(jsondata['sensors']['temperature'][0]['value']) + " " + jsondata['sensors']['temperature'][0]['unit']
-                self.temperatureUpdated.emit("Temperatur: " + self.currentTemperature)
-            except Exception as e:
-                self.temperatureUpdated.emit("Temperatur: Error")
-                print(e)
+    @pyqtSlot()
+    def update(self):
+        reply = self.network.get(QNetworkRequest(QUrl("http://status.mainframe.io/api/spaceInfo")))
+        reply.finished.connect(self.process_apidata)
+
+    @pyqtSlot()
+    def process_apidata(self):
+        reply = self.sender()
+        # *hust*
+        # schönere lösung wäre wohl eine Membervariable ala pending_reply
+
+        if reply.error():
+            print("Network error: {}".format(reply.errorString()))
+            self.temperatureUpdated.emit("Temperatur: Error")
+            return
+
+        data = reply.readAll().data().decode("utf-8")
+        jsondata = json.loads(data)
+
+        self.currentTemperature = str(jsondata['sensors']['temperature'][0]['value']) + " " + jsondata['sensors']['temperature'][0]['unit']
+        self.temperatureUpdated.emit("Temperatur: " + self.currentTemperature)
+
+
 
 app = QGuiApplication(sys.argv)
-t = UpdateThread()
-t.start()
+
+board = Dashboard()
 
 sys.exit(app.exec_())
