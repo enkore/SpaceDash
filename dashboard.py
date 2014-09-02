@@ -25,14 +25,18 @@ class UpdateThread(threading.Thread):
         self.qml_rectangle.updateTemperature("Running")
 
     def run(self):
+        print("Thread starting")
         while True:
             time.sleep(1.0)
-            bytedata = urllib.request.urlopen('http://status.hasi.it/spaceapi').read()
-            stringdata = bytedata.decode("utf-8")
-            jsondata = json.loads(stringdata)
-            currentTemperature = str(jsondata['sensors']['temperature'][0]['value']) + " " + jsondata['sensors']['temperature'][0]['unit']
-            self.qml_rectangle.updateTemperature(currentTemperature)
-
+            print("Updating")
+            try:
+                bytedata = urllib.request.urlopen('http://status.hasi.it/spaceapi', None, 10).read()
+                stringdata = bytedata.decode("utf-8")
+                jsondata = json.loads(stringdata)
+                self.currentTemperature = str(jsondata['sensors']['temperature'][0]['value']) + " " + jsondata['sensors']['temperature'][0]['unit']
+                self.qml_rectangle.updateTemperature(self.currentTemperature)
+            except Exception as e:
+                self.qml_rectangle.updateTemperature("Error")
 
 t = UpdateThread()
 t.start()
