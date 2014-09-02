@@ -2,14 +2,13 @@
 import sys
 import json
 import urllib.request
-import threading
 import time
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtQuick import *
 
 
-class UpdateThread(QObject, threading.Thread):
+class UpdateThread(QThread):
 
     temperatureUpdated = pyqtSignal(str)
 
