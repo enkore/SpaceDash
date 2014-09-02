@@ -9,11 +9,12 @@ from PyQt5.QtGui import *
 from PyQt5.QtQuick import *
 
 
-class UpdateThread(threading.Thread):
+class UpdateThread(QObject, threading.Thread):
+
+    temperatureUpdated = pyqtSignal(str)
 
     def __init__(self):
         super(UpdateThread, self).__init__()
-        self.app = QGuiApplication(sys.argv)
         self.view = QQuickView()
         self.view.setWidth(1024)
         self.view.setHeight(600)
@@ -22,7 +23,7 @@ class UpdateThread(threading.Thread):
         self.view.setSource(QUrl('dashboard.qml'))
         self.view.show()
         self.qml_rectangle = self.view.rootObject()
-        self.qml_rectangle.updateTemperature("Running")
+        self.temperatureUpdated.connect(self.qml_rectangle.updateTemperature)
 
     def run(self):
         print("Thread starting")
@@ -34,11 +35,13 @@ class UpdateThread(threading.Thread):
                 stringdata = bytedata.decode("utf-8")
                 jsondata = json.loads(stringdata)
                 self.currentTemperature = str(jsondata['sensors']['temperature'][0]['value']) + " " + jsondata['sensors']['temperature'][0]['unit']
-                self.qml_rectangle.updateTemperature(self.currentTemperature)
+                self.temperatureUpdated.emit("Temperatur: " + self.currentTemperature)
             except Exception as e:
-                self.qml_rectangle.updateTemperature("Error")
+                self.temperatureUpdated.emit("Temperatur: Error")
+                print(e)
 
+app = QGuiApplication(sys.argv)
 t = UpdateThread()
 t.start()
 
-sys.exit(t.app.exec_())
+sys.exit(app.exec_())
